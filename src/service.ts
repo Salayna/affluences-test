@@ -15,11 +15,12 @@ async function getAvailableTimeFromQuery(req: Request, res: Response){
     }
 
     const dateAndTime = date + " " + time
-    const dateAndTimeMoment = moment(dateAndTime, "YYYY-MM-DD HH:mm:ss", true)
-
+    const dateAndTimeMoment = moment(dateAndTime, "YYYY-MM-DD HH:mm:ss", false)
+    console.log(dateAndTimeMoment)
     const openings  = await  axios.get(`http://localhost:8080/timetables?date=${date}&resourceId=${resourceId}`);
     const openingTimes = openings.data.timetables
     const openingTimesMoment = openingTimes.map((openingTime: any) => {
+        console.log(openingTime.opening + " to " + openingTime.closing)
         return {
             opening: moment(openingTime.opening, "YYYY-MM-DD HH:mm:ss", true),
             closing: moment(openingTime.closing, "YYYY-MM-DD HH:mm:ss", true)
@@ -35,7 +36,7 @@ async function getAvailableTimeFromQuery(req: Request, res: Response){
         })
         return
     }
-    const reservations  = await  axios.get(`http://localhost:8080/timetables?date=${date}&resourceId=${resourceId}`);
+    const reservations  = await  axios.get(`http://localhost:8080/reservations?date=${date}&resourceId=${resourceId}`);
     console.log("In openings")
     const reservationTimes = reservations.data.reservations
     const reservationTimesMoment = reservationTimes.map((reservationTime: any) => {
