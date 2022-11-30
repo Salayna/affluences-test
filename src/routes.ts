@@ -3,9 +3,5 @@ import { Router } from 'express';
 import { getAvailableTimeFromQuery } from './service';
 const router = Router();
 
-router.get('/', (req:Request, res:Response) => {
-    res.send('Hello World!');
-});
-
-router.get('/test', getAvailableTimeFromQuery);
+router.get('/availability', getAvailableTimeFromQuery);
 export default router;

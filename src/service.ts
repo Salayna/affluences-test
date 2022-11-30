@@ -2,25 +2,58 @@
 
 import {Request, Response} from "express";
 import axios from "axios";
-import moment from "moment";
+import moment, {Moment} from "moment";
 async function getAvailableTimeFromQuery(req: Request, res: Response){
     const date = req.query.date
     const time = req.query.time
     const resourceId = req.query.resourceId
 
     if(!date || !resourceId || !time){
-        console.log('query');
         res.status(400).json({error: "missing params"})
         return
     }
 
     const dateAndTime = date + " " + time
     const dateAndTimeMoment = moment(dateAndTime, "YYYY-MM-DD HH:mm:ss", false)
-    console.log(dateAndTimeMoment)
-    const openings  = await  axios.get(`http://localhost:8080/timetables?date=${date}&resourceId=${resourceId}`);
+
+    try {
+        if (!(await checkIfDateIsOnOpenDay(date as string, resourceId as string, dateAndTimeMoment))){
+            res.status(200).json({
+                "available": false
+            })
+            return
+        }
+
+        if (!(await checkIfThereIsReservation(date as string, resourceId as string, dateAndTimeMoment))){
+            res.status(200).json({
+                "available": false
+            })
+            return
+        }
+    }catch (e) {
+        res.status(404).json({
+            "message": "Resource not found"
+        })
+        return
+    }
+
+
+    res.status(200).json({
+        "available": true
+    })
+    return
+}
+
+
+async function checkIfDateIsOnOpenDay(date: any, resourceId: string,dateAndTimeMoment: Moment ): Promise<boolean>{
+    let openings;
+    try {
+        openings  = await  axios.get(`http://localhost:8080/timetables?date=${date}&resourceId=${resourceId}`);
+    } catch (e) {
+        throw(new Error("Error fetching data from peer"));
+    }
     const openingTimes = openings.data.timetables
     const openingTimesMoment = openingTimes.map((openingTime: any) => {
-        console.log(openingTime.opening + " to " + openingTime.closing)
         return {
             opening: moment(openingTime.opening, "YYYY-MM-DD HH:mm:ss", true),
             closing: moment(openingTime.closing, "YYYY-MM-DD HH:mm:ss", true)
@@ -30,14 +63,18 @@ async function getAvailableTimeFromQuery(req: Request, res: Response){
         return dateAndTimeMoment.isBetween(openingTime.opening, openingTime.closing)
     })
     if(!openingTime){
-        console.log('opening');
-        res.status(400).json({
-            "available": false
-        })
-        return
+        return false
     }
-    const reservations  = await  axios.get(`http://localhost:8080/reservations?date=${date}&resourceId=${resourceId}`);
-    console.log("In openings")
+    return true
+}
+
+async function checkIfThereIsReservation(date: any, resourceId: string,dateAndTimeMoment: Moment ): Promise<boolean>{
+    let reservations
+    try {
+        reservations  = await  axios.get(`http://localhost:8080/reservations?date=${date}&resourceId=${resourceId}`);
+    } catch (e) {
+        throw(new Error("Error fetching data from peer"));
+    }
     const reservationTimes = reservations.data.reservations
     const reservationTimesMoment = reservationTimes.map((reservationTime: any) => {
         return {
@@ -48,16 +85,7 @@ async function getAvailableTimeFromQuery(req: Request, res: Response){
     const reservationTime = reservationTimesMoment.find((reservationTime: any) => {
         return dateAndTimeMoment.isBetween(reservationTime.reservationStart, reservationTime.reservationEnd)
     })
-    if(reservationTime){
-        console.log('reservation');
-        res.status(400).json({
-            "available": false
-        })
-        return
-    }
-    res.status(200).json({
-        "available": true
-    })
+    return !reservationTime;
 }
 
 export {getAvailableTimeFromQuery}
